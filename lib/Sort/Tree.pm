@@ -12,6 +12,9 @@ package Sort::Tree;
 # AUTHOR
 #   Bryce Harrington <brycehar@bryceharrington.com>
 #
+# CONTRIBUTIONS BY
+#   Pat Deegan, psychogenic.com.  2004-05-06 Sort bug fix and traversal algo.
+#
 # COPYRIGHT
 #   Copyright (C) 2003 Bryce Harrington & Open Source Development Lab
 #   All Rights Reserved.
@@ -21,11 +24,17 @@ package Sort::Tree;
 #
 #------------------------------------------------------------------------
 #
-# Last Modified:  $Date: 2003/09/09 23:19:46 $
+# Last Modified:  $Date: 2004/05/06 20:46:04 $
 #
-# $Id: Tree.pm,v 1.1.1.1 2003/09/09 23:19:46 bryce Exp $
+# $Id: Tree.pm,v 1.3 2004/05/06 20:46:04 bryce Exp $
 #
 # $Log: Tree.pm,v $
+# Revision 1.3  2004/05/06 20:46:04  bryce
+# Adding patch from Pat Deegan
+#
+# Revision 1.2  2003/09/09 23:59:36  bryce
+# Adding Kevin's patch
+#
 # Revision 1.1.1.1  2003/09/09 23:19:46  bryce
 # Initial import
 #
@@ -51,7 +60,7 @@ B<Sort::Tree> - Organize list of objects into parent/child order.
 
 =head1 DESCRIPTION
 
-B<Sort::Tree> includes two routines, list_to_tree and tree_to_list.
+B<Sort::Tree> includes three routines, list_to_tree, tree_to_list and traverse.
 These are used to organize an unordered list of objects into a tree
 form.  For example, you'd perform a database query to gain a list of
 folders in a document system, and then order them by parentage for
@@ -107,9 +116,9 @@ use Carp;
 require Exporter;
 
 
-use vars qw($VERSION @ISA);
+use vars qw($VERSION @ISA $TreeChildrenKey);
 @ISA = qw( Exporter );
-$VERSION = '1.08';
+$VERSION = '1.09';
 @Sort::Tree::EXPORT = qw( 
 			  list_to_tree 
 			  tree_to_list 
@@ -124,6 +133,8 @@ $VERSION = '1.08';
 @Sort::Tree::EXPORT_TAGS = qw( 'all' => [ qw( list_to_tree tree_to_list ) ] );
 
 use constant DEBUGGING => 0;
+
+$TreeChildrenKey = 'kids';
 
 =head3 list_to_tree($list, $idField, $parentField)
 
@@ -173,7 +184,7 @@ sub list_to_tree {
 	    if (defined $index{$id}->{$idField}) {
 		die "Sort::Tree::list_to_tree:  Duplicate object $id.\n";
 	    } else {
-		$obj->{kids} = $index{$id}->{kids};
+		$obj->{$TreeChildrenKey} = $index{$id}->{$TreeChildrenKey};
 		$index{$id} = $obj;
 	    }
 	} else {
@@ -189,7 +200,7 @@ sub list_to_tree {
 	# Add it as a child of the appropriate parent object
 	} else {
 	    warn "Adding $id as child of $pid\n" if DEBUGGING;
-	    push @{$index{$pid}->{kids}}, $obj;
+	    push @{$index{$pid}->{$TreeChildrenKey}}, $obj;
 	}
     }   
 
@@ -210,6 +221,8 @@ sub reverse_numerically {     my ($a,$b,$f) = @_;  $b->{$f} <=> $a->{$f} }
 sub reverse_alphabetically {  my ($a,$b,$f) = @_;  $b->{$f} cmp $a->{$f} }
 sub reverse_chronologically { my ($a,$b,$f) = @_;  $a->{$f} cmp $b->{$f} }
 
+	
+						
 =head3 tree_to_list(tree, cmpFields, cmpFuncs, idField, depth, max_depth)
 
 Takes a tree and serializes it into a sorted list.  Recursive.
@@ -248,6 +261,7 @@ sub tree_to_list {
     }
 
     # Iterate through tree and generate sorted threaded list
+    
     my @list;
     foreach my $node (sort { &$cmpFunc($a,$b,$cmpField);
 			    } @{$tree}) {
@@ -255,9 +269,9 @@ sub tree_to_list {
 	push @list, $node;
 
 	# If this obj has children, sort & parse those next
-	if (defined $node->{kids} && $depth != $max_depth) {
-	    push @list, tree_to_list($node->{kids},
-				     $cmpFields,$cmpFuncs,
+	if (defined $node->{$TreeChildrenKey} && $depth != $max_depth) {
+	    push @list, tree_to_list($node->{$TreeChildrenKey},
+				     [ $cmpField ], [ $cmpFunc ],
 				     $idField,$depth+1,$max_depth);
 	}
     }
@@ -266,6 +280,151 @@ sub tree_to_list {
 }
 
 
+
+
+=head3 traverse(tree, %traverseArgs)
+
+Performs a depth-first traversal of the tree, calling a specified callback method for each element.
+
+  Parameters:
+    $tree - the tree data structure
+    %traverseArgs - two or more key/value paired arguments ('method' and 'idField' required)
+
+%traverseArgs is expected to contain valid 'method' (code ref) and 'idField' (string) keys. The 'method' should expect to
+be called with a list of arguments and have a signature like
+
+ 
+	sub mymethod {
+		my %arguments = @_;
+		# ...
+	}
+
+
+
+$traverseArgs{'method'} will be called for each tree element encountered with the following key/value arguments:
+	
+	'id'		string, id of current element
+	'item'		actual tree element currently being processed
+	'level'		integer, depth within tree
+	'parent_id'	string, id of parent element if available
+	'parent'	parent element of 'item'
+	%traverseArgs	args passed to traverse()
+	
+
+The values passed to $traverseArgs{'method'} will also contain the arguments passed in 
+the %traverseArgs used in the call to traverse(), which is a handy way to pass information along to the 
+processing method.
+
+The method specified with the $traverseArgs{'method'} parameter should return a FALSE value to continue processing of 
+the tree.  Should the $traverseArgs{'method'} return something which evaluates to Perl 'true', traverse()
+will abort and immediately return THAT value to the caller.
+
+EXAMPLES of traverse(): 
+ 
+ {
+  	# Modifying all elements in a tree, by traversing it
+  	# ... 
+ 	my $tree = Sort::Tree::list_to_tree(...);
+	
+	Sort::Tree::traverse($tree, 
+				   'method'	=> \&uppercaseTitles,
+				   'idField'	=> 'myid'
+				);
+	
+	# $tree now contains uppercase titles in each element.
+	# ...
+ }
+ 
+ # uppercaseTitles assumes tree items contain a 'title' key.
+ sub uppercaseTitles {
+ 	my %details = @_;
+	
+	print "Uppercasing title from item " . $details{'id'} . "\n";
+	
+	$details{'item'}->{'title'} = uc($details{'item'}->{'title'});
+	
+	return false; # continue processing tree
+ }
+
+
+The above example demonstrated a traversal which needed to interact with each element in the tree.  In some instances, such as during
+as search, it is desirable to abort the operation at some point.  This is accomplished by having the traverse method return a true value.  Since this
+true value is returned to the original caller, it can be used to return a tree element or a portion thereof.
+ 
+ 
+ {
+  	# Search elements in tree, return first match
+  	# ... 
+ 	my $tree = Sort::Tree::list_to_tree(...);
+	
+	my %traverseArgs = (
+				'method'	=> \&findByOwner,
+				'idField'	=> 'myid',
+				'owner'		=> 'bob', # traversArgs are passed to callback method
+		);
+	
+	my $bobsElement = Sort::Tree::traverse($tree, %traverseArgs) || die "can't find bob's stuff";
+	
+	# use the element
+	
+ }
+ 
+ # findByOwner assumes tree elements have an 'owner' attribute
+ sub findByOwner {
+ 	my %details = @_;
+ 
+	if ($details{'item'}->{'owner'} eq $details{'owner'})
+	{
+		return $details{'item'};
+	}
+	
+	return false; # continue processing tree
+ }
+
+=cut
+
+sub traverse {
+	my $tree = shift || return undef;
+	my %args = @_;
+
+	my $method = $args{'method'} || die "Must provide a 'method' key to traverse() args";
+	my $idField = $args{'idField'} || 'idField';
+
+
+	die "Tree is not an array ref?" unless (ref $tree eq 'ARRAY');
+
+	my $level = $args{'_level'} || "0";
+	my $pid = $args{'_pid'} ;
+	my $parent = $args{'_parent'} ;
+	foreach my $element (@{$tree})
+	{
+		my %methodArgs = (
+					%args,
+					'id'	=> $element->{$idField},
+					'level'	=> $level,
+					'parent_id'	=> $pid,
+					'parent'	=> $parent,
+					'item'	=> $element,
+				);
+
+		my $methReturn = &{$method}(%methodArgs);
+		return $methReturn if ($methReturn);
+		if ($element->{$TreeChildrenKey} && ref $element->{$TreeChildrenKey} )
+		{
+			my %traversArgs = %args;
+			$traversArgs{'_level'}++;
+			$traversArgs{'_pid'} = $element->{$idField};
+			$traversArgs{'_parent'} = $element;
+
+			my $travRet = traverse($element->{$TreeChildrenKey}, %traversArgs);
+			return $travRet if ($travRet);
+		}
+	}
+
+	return undef;
+	
+}
+				
 #========================================================================
 # Subroutines
 #------------------------------------------------------------------------
@@ -280,12 +439,11 @@ Nothing outside of the normal Perl core modules (Exporter & Carp).
 
 =head1 BUGS
 
-In tree_to_list, various ordering mechanisms are permitted, but 
-only the 'numerically' option works.
+None reported.
 
 =head1 VERSION
 
-1.07 - Released on 2003/06/19.
+1.09 - Released on 2004/05/06.
 
 =head1 SEE ALSO
 
@@ -297,6 +455,10 @@ Bryce Harrington E<lt>brycehar@bryceharrington.comE<gt>
 
 L<http://www.osdl.org/|http://www.osdl.org/>
 
+=head2 CONTRIBUTIONS
+
+Pat Deegan, L<http://www.psychogenic.com>.  2004-05-06 Sort bugfix, traverse() method.
+
 =head1 COPYRIGHT
 
 Copyright (C) 2003 Bryce Harrington.
@@ -307,6 +469,6 @@ modify it under the same terms as Perl itself.
 
 =head1 REVISION
 
-Revision: $Revision: 1.1.1.1 $
+Revision: $Revision: 1.3 $
 
 =cut

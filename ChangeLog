@@ -1,5 +1,9 @@
 Revision history for Perl module Sort::Tree
 
+1.09  2004/05/06 14:00:00 bryce
+	- Added patch from Pat Deegan implementing alphabetical sorting,
+  	  the traverse() function, etc.  
+	
 1.08  2003/09/09 15:30:00 bryce
 	- Added patch from Kevin White fixing bug where if root item is
 	  not the first in the given array then strange things can occur.	
