@@ -10,7 +10,7 @@ package Sort::Tree;
 # useful for generating directory-tree like displays.
 #
 # AUTHOR
-#   Bryce Harrington <bryce@osdl.org>
+#   Bryce Harrington <brycehar@bryceharrington.com>
 #
 # COPYRIGHT
 #   Copyright (C) 2003 Bryce Harrington & Open Source Development Lab
@@ -21,11 +21,14 @@ package Sort::Tree;
 #
 #------------------------------------------------------------------------
 #
-# Last Modified:  $Date: 2003/04/04 07:08:19 $
+# Last Modified:  $Date: 2003/09/09 23:19:46 $
 #
-# $Id: Tree.pm,v 1.5 2003/04/04 07:08:19 bryce Exp $
+# $Id: Tree.pm,v 1.1.1.1 2003/09/09 23:19:46 bryce Exp $
 #
 # $Log: Tree.pm,v $
+# Revision 1.1.1.1  2003/09/09 23:19:46  bryce
+# Initial import
+#
 #
 #========================================================================
 =head1 NAME
@@ -104,8 +107,9 @@ use Carp;
 require Exporter;
 
 
-$Sort::Tree::ISA = qw( Exporter );
-$Sort::Tree::VERSION = '1.07';
+use vars qw($VERSION @ISA);
+@ISA = qw( Exporter );
+$VERSION = '1.08';
 @Sort::Tree::EXPORT = qw( 
 			  list_to_tree 
 			  tree_to_list 
@@ -128,7 +132,7 @@ tree order and including the nesting level.  Inspired by DBIx::Tree.
 
 =cut
 sub list_to_tree {
-    my ($list, $idField, $parentField) = @_;
+    my ($list, $idField, $parentField, $startId) = @_;
 
     $idField ||= 'id';
     $parentField ||= 'parent_id';
@@ -137,6 +141,17 @@ sub list_to_tree {
     my $root_id = -1;
 
     warn "Using id field $idField and parent field $parentField\n" if DEBUGGING;
+
+    # If given a startId the find that object in the list and ensure that
+    # that is processed first.  Patch from Kevin White [kevin.white/oupjournals-org]
+    if( defined $startId ) {
+        for( my $i = 0; $i < scalar @{$list}; $i++ ) {
+            if( ${$list}[$i]->{$idField} =~ /^$startId$/ ) {
+                unshift( @{$list}, splice( @{$list}, $i, 1 ) );
+                last;
+            }
+        }
+    }
 
     my @tree;
     my %index;
@@ -256,6 +271,7 @@ sub tree_to_list {
 #------------------------------------------------------------------------
 
 
+1;
 __END__
 
 =head1 PREREQUISITES
@@ -277,7 +293,7 @@ L<perl(1)>
 
 =head1 AUTHOR
 
-Bryce Harrington E<lt>bryce@osdl.orgE<gt>
+Bryce Harrington E<lt>brycehar@bryceharrington.comE<gt>
 
 L<http://www.osdl.org/|http://www.osdl.org/>
 
@@ -291,7 +307,6 @@ modify it under the same terms as Perl itself.
 
 =head1 REVISION
 
-Revision: $Revision: 1.7 $
+Revision: $Revision: 1.1.1.1 $
 
 =cut
-1;

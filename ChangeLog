@@ -1,5 +1,9 @@
 Revision history for Perl module Sort::Tree
 
+1.08  2003/09/09 15:30:00 bryce
+	- Added patch from Kevin White fixing bug where if root item is
+	  not the first in the given array then strange things can occur.	
+	
 1.07  2003/06/19 12:00:00  bryce
 	- Fixing POD to be more standard with CPAN requirements
 	
