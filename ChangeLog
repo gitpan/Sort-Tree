@@ -1,5 +1,8 @@
 Revision history for Perl module Sort::Tree
 
+1.07  2003/06/19 12:00:00  bryce
+	- Fixing POD to be more standard with CPAN requirements
+	
 1.06  2003/06/15 14:00:00  bryce
 	- Breaking out into its own module & documenting better
 	

@@ -28,24 +28,37 @@ package Sort::Tree;
 # $Log: Tree.pm,v $
 #
 #========================================================================
-=head1 Sort::Tree
+=head1 NAME
 
-This module includes two routines, list_to_tree and tree_to_list.  These
-are used to organize an unordered list of objects into a tree form.  For
-example, you'd perform a database query to gain a list of folders in a
-document system, and then order them by parentage for display in a
-webpage.
+B<Sort::Tree> - Organize list of objects into parent/child order.
 
-=head2 Usage
 
-=head3 Simple example:
+=head1 SYNOPSIS
 
-This is a bit trivially contrived but should illustrate the basic
-functioning of the module:
+    use Sort::Tree;
 
-use Sort::Tree;
+    my @tree = list_to_tree(\@my_list, 
+                            $id_field, 
+                            $parent_field);
 
-my @creatures = (
+    my @sorted_list = tree_to_list(\@tree,
+                                   [$id_field],
+                                   [\&Sort::Tree::numerically],
+                                   $parent_field));
+
+=head1 DESCRIPTION
+
+B<Sort::Tree> includes two routines, list_to_tree and tree_to_list.
+These are used to organize an unordered list of objects into a tree
+form.  For example, you'd perform a database query to gain a list of
+folders in a document system, and then order them by parentage for
+display in a webpage.
+
+=head1 EXAMPLE
+
+    use Sort::Tree;
+
+    my @creatures = (
                  { id => 1, class => -1, name => 'animal' },
                  { id => 2, class => 1,  name => 'mammal' },
                  { id => 3, class => 1,  name => 'bird' },
@@ -58,14 +71,14 @@ my @creatures = (
                  { id => 10,class => 4,  name => 'gecko' }
                  );
 
-my @tree = Sort::Tree::list_to_tree(\@creatures, 'id', 'class');
+    my @tree = Sort::Tree::list_to_tree(\@creatures, 'id', 'class');
 
-foreach my $row (Sort::Tree::tree_to_list(\@tree,
+    foreach my $row (Sort::Tree::tree_to_list(\@tree,
                                           ['id'],
                                           [\&Sort::Tree::numerically],
                                           'class')) {
-    print ' ' x $row->{class}, $row->{name}, "\n";
-}
+        print ' ' x $row->{class}, $row->{name}, "\n";
+    }
 
 The following is displayed:
 
@@ -80,83 +93,10 @@ animal
  reptile
     gecko
 
-=head3 Advanced example:
-
-The following code is lifted from the make_tree routine of 'docsys'.  It
-shows how to prepare data for being processed by Sort::Tree with the
-intent of creating a fixed-depth tree HTML display.  Unlike the previous
-example, this keeps track of the nesting level, cuts off at a defined
-depth, and indicates where you'd hook in database and template
-processing calls.  A lot of details are left out for conciseness, that
-you'll need to flesh out.
-
-my $idField = 'uid';
-my $parentField = 'parent_id';
-my $icon_spacer = 'blank.gif';  # 1x1 transparent GIF
-my $depth = 3;
-
-my @rows = ();
-
-# Only descend into $depth level's worth of parents
-for (my $level = 0; ($level<=$depth); $level++) {
-  my $pfilter = '';
-  last if ($#parents < 0);  # No parents left
-  if ($level == 0) {
-    # This is the root node
-    $pfilter = "$idField=$parent_id";
-  } elsif ($#parents == 0) {
-    # There is only one parent
-    $pfilter = "$parent_field=$parents[0]&&$idField<>$parent_id";
-  } else {
-    # There are multiple parents to select
-    $pfilter = "$parent_field IN (" . join(',', @parents) . ")"
-             . "&&$idField<>$parent_id";
-  }
-
-  # TODO:  Add your database select() handler for getfrom_db()...
-  my $sth = $DB->getfrom_db($table, '', $pfilter, $sort, 0);
-  @parents = ();
-
-  last if ($sth == 0);
-
-  # Iterate through the database items for additional operations
-  while (my $data = $DB->getnext_db($sth)) {
-    # Note the current level and fill in the {symbol} field
-    $data->{level} = $level;
-    if ($level == $depth) {
-      $data->{symbol} = ($icon_spacer x $level) . $icon_folderclosed;
-    } else {
-      $data->{symbol} = ($icon_spacer x $level) . $icon_folderopen;
-    }
-
-    $data->{row_data} = my_make_row('foobar.tt2', $data);
-    push @rows, $data;
-
-    if ($level == 0) {
-      @parents = ($data->{uid});
-    } elsif ($data->{$idField} != $data->{$parent_field}) {
-      # Add uid to the next @parents list
-      push @parents, $data->{$idField};
-    }
-  }
-}
-
-# Reorganize data into tree form
-my @rows = list_to_tree(\@rows, $idField, $parentField);
-
-my $content = '';
-foreach my $row (tree_to_list(\@rows, ['descriptor'],[\&alphabetically])) {
-  next unless (defined ($row->{$idField};
-  $content .= $row->{row_data} . "\n";  
-
-  # TODO:  Do other stuff with this node (populate files into folders, etc.)
-}
-
-# TODO:  Do template stuff (add your header, footer, etc.)
-
-print $content;
+=head1 METHODS
 
 =cut
+
 
 use strict;
 use Carp;
@@ -165,7 +105,7 @@ require Exporter;
 
 
 $Sort::Tree::ISA = qw( Exporter );
-$Sort::Tree::VERSION = '1.06';
+$Sort::Tree::VERSION = '1.07';
 @Sort::Tree::EXPORT = qw( 
 			  list_to_tree 
 			  tree_to_list 
@@ -318,45 +258,18 @@ sub tree_to_list {
 
 __END__
 
-=head1 NAME
-
-
-
-=head1 SYNOPSIS
-
-use 
-=head1 DESCRIPTION
-
-B<Sort::Tree> will...
-
-
-=head1 METHODS
-
-
-
 =head1 PREREQUISITES
 
-This script requires the C<strict> module.  It also requires
-C<foobar 1.00>.
-
-=head1 COREQUISITES
-
-CGI
-
-=head1 SCRIPT CATEGORIES
-
-CPAN/Administrative
+Nothing outside of the normal Perl core modules (Exporter & Carp).
 
 =head1 BUGS
 
-None known.
+In tree_to_list, various ordering mechanisms are permitted, but 
+only the 'numerically' option works.
 
 =head1 VERSION
 
-0.00
-Distributed as part of  version ,
-released on .
-
+1.07 - Released on 2003/06/19.
 
 =head1 SEE ALSO
 
@@ -378,7 +291,7 @@ modify it under the same terms as Perl itself.
 
 =head1 REVISION
 
-Revision: $Revision: 1.5 $
+Revision: $Revision: 1.7 $
 
 =cut
 1;
