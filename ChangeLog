@@ -1,0 +1,23 @@
+Revision history for Perl module Sort::Tree
+
+1.06  2003/06/15 14:00:00  bryce
+	- Breaking out into its own module & documenting better
+	
+1.05  2003/04/04 07:08:19  bryce
+	- Sorting of columns in a document tree now works properly
+	
+1.04  2003/03/10 23:25:57  bryce
+	- Implementing folder tree display (it works!)
+	
+1.03  2003/03/10 17:18:22  bryce
+	- Working on getting folder navigation implemented
+	
+1.02  2003/03/07 01:45:55  bryce
+	- Adding error msg trace_tree() support
+	
+1.01  2003/02/18 21:08:04  bryce
+	- Adding Sort::Tree
+
+1.00  Sun Jun 15 12:47:39 2003
+	- original version; created by sdist 1.3
+
